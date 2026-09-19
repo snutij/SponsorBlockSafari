@@ -14,6 +14,8 @@ on:
     # Not exactly on the hour: GitHub delays scheduled runs under load.
     - cron: "17 3 * * *"
   workflow_dispatch: {}
+  repository_dispatch:
+    types: [manual-validation]
 
 permissions:
   contents: write
