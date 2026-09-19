@@ -1,6 +1,6 @@
 > [!NOTE]
 > Free unsigned macOS build. This fork automatically publishes a ready to install .app for Safari on macOS, rebuilt whenever a new
-> SponsorBlock version is released upstream. Download it from the Releases tab, then see SAFARI-BUILD.md for install instructions.
+> SponsorBlock version is released upstream. Download it from the Releases tab, then see instructions bellow for install.
 > The signed version is on the Mac App Store and supports iOS too.
 
 ## Install
