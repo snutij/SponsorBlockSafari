@@ -1,0 +1,144 @@
+# The workflow runs once a day and:
+# - asks the GitHub API for the latest release of ajayyy/SponsorBlock;
+# - stops immediately if that version has already been published here;
+# - downloads the official SafariExtension.zip asset from that release;
+# - generates an Xcode project with xcrun safari-web-extension-packager;
+# - builds the macOS target unsigned with xcodebuild;
+# - publishes SponsorBlock-Safari.app.zip as a release named safari-<version>.
+# The extension itself is never rebuilt from source: the workflow reuses the artefact that upstream already ships with every release.
+# There is no npm build and no submodule to keep in sync, which is why this fork does not need to track upstream to produce working builds
+name: Build SponsorBlock Safari
+
+on:
+  schedule:
+    # Not exactly on the hour: GitHub delays scheduled runs under load.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UPSTREAM: ajayyy/SponsorBlock
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+
+      - name: Resolve latest upstream release
+        id: check
+        run: |
+          VERSION="$(gh api "repos/$UPSTREAM/releases/latest" --jq .tag_name)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if gh release view "safari-$VERSION" >/dev/null 2>&1; then
+            echo "Release safari-$VERSION already published, nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New upstream version detected: $VERSION"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download and extract the Safari extension
+        if: steps.check.outputs.build == 'true'
+        id: extract
+        run: |
+          gh release download "${{ steps.check.outputs.version }}" \
+            --repo "$UPSTREAM" \
+            --pattern SafariExtension.zip
+
+          unzip -q SafariExtension.zip -d raw
+
+          MANIFEST="$(find raw -name manifest.json -print -quit)"
+
+          if [ -z "$MANIFEST" ]; then
+            echo "manifest.json not found in SafariExtension.zip"
+            exit 1
+          fi
+
+          EXT_DIR="$(dirname "$MANIFEST")"
+          echo "Extension root: $EXT_DIR"
+          echo "ext_dir=$EXT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Generate the Xcode project
+        if: steps.check.outputs.build == 'true'
+        run: |
+          xcrun safari-web-extension-packager \
+            "${{ steps.extract.outputs.ext_dir }}" \
+            --project-location project \
+            --app-name SponsorBlock \
+            --bundle-identifier local.sponsorblock \
+            --macos-only \
+            --swift \
+            --copy-resources \
+            --no-open \
+            --no-prompt \
+            --force
+
+          echo "Generated Xcode projects:"
+          find project -name "*.xcodeproj" -maxdepth 3
+
+      - name: Build the unsigned macOS application
+        if: steps.check.outputs.build == 'true'
+        run: |
+          PROJECT="$(find project -name "*.xcodeproj" -maxdepth 3 -print -quit)"
+
+          if [ -z "$PROJECT" ]; then
+            echo "No Xcode project was generated"
+            exit 1
+          fi
+
+          echo "Available schemes:"
+          xcodebuild -project "$PROJECT" -list || true
+
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme SponsorBlock \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO \
+            build
+
+      - name: Archive the application
+        if: steps.check.outputs.build == 'true'
+        run: |
+          APP="$(find build/Build/Products/Release -maxdepth 1 -name "*.app" -print -quit)"
+
+          if [ -z "$APP" ]; then
+            echo "No .app was produced"
+            exit 1
+          fi
+
+          echo "Application found: $APP"
+
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$APP" SponsorBlock-Safari.app.zip
+
+      - name: Publish the release
+        if: steps.check.outputs.build == 'true'
+        run: |
+          gh release create "safari-${{ steps.check.outputs.version }}" \
+            SponsorBlock-Safari.app.zip \
+            --title "SponsorBlock Safari macOS ${{ steps.check.outputs.version }}" \
+            --notes-file .github/release-notes.md
+
+      # A github workflow is disabled if no repository activity occurs for a certain period, so this step ensures it remains active.
+      - name: Keep the schedule alive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .last-build
+          git add .last-build
+
+          git diff --cached --quiet || \
+            git commit -m "chore: record last build check"
+
+          git push
