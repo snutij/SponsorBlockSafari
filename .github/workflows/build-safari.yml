@@ -71,7 +71,7 @@ jobs:
             "${{ steps.extract.outputs.ext_dir }}" \
             --project-location project \
             --app-name SponsorBlock \
-            --bundle-identifier local.sponsorblock.macos \
+            --bundle-identifier local.sponsorblock.SponsorBlock \
             --macos-only \
             --swift \
             --copy-resources \
