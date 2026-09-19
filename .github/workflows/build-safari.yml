@@ -127,7 +127,9 @@ jobs:
           gh release create "safari-${{ steps.check.outputs.version }}" \
             SponsorBlock-Safari.app.zip \
             --title "SponsorBlock Safari macOS ${{ steps.check.outputs.version }}" \
-            --notes-file .github/release-notes.md
+            --notes "Built from the upstream SponsorBlock Safari extension release ${{ steps.check.outputs.version }}.
+
+Upstream release: https://github.com/$UPSTREAM/releases/tag/${{ steps.check.outputs.version }}"
 
       # A github workflow is disabled if no repository activity occurs for a certain period, so this step ensures it remains active.
       - name: Keep the schedule alive
