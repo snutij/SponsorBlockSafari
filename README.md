@@ -1,39 +1,60 @@
-> [!NOTE]
-> Free unsigned macOS build. This fork automatically publishes a ready to install .app for Safari on macOS, rebuilt whenever a new
-> SponsorBlock version is released upstream. Download it from the Releases tab, then see instructions below for install.
-> The signed version is on the Mac App Store and supports iOS too.
+# SponsorBlock for Safari (macOS)
 
-## Install
+[![Latest release](https://img.shields.io/github/v/release/snutij/SponsorBlockSafari?display_name=tag&label=release)](https://github.com/snutij/SponsorBlockSafari/releases/latest)
+[![License](https://img.shields.io/github/license/snutij/SponsorBlockSafari)](LICENSE)
 
-1. Download `SponsorBlock-Safari.app.zip` below and unzip it.
-2. Move `SponsorBlock.app` to `/Applications`.
-3. Launch it once. If macOS blocks it, right click the app and choose **Open**.
-4. In Safari, open **Settings > Advanced** and tick **Show features for web developers**.
-5. Open **Settings > Developer** and tick **Allow unsigned extensions**.
-6. Open **Settings > Extensions** and enable SponsorBlock.
+Free macOS Safari builds of [SponsorBlock](https://sponsor.ajay.app/), automatically generated from the official upstream Safari extension release.
 
 > [!IMPORTANT]
-> The app stays installed across restarts, but macOS resets the
-> "Allow unsigned extensions" setting every time Safari is relaunched.
-> This is an Apple restriction for apps that are not code signed.
+> This is an unofficial, community-maintained distribution. It is not affiliated
+> with the SponsorBlock project or Apple. For the signed and notarized version,
+> including iOS support, use the [official Mac App Store app](https://apps.apple.com/us/app/sponsorblock-for-youtube/id1573461917).
 
-The signed and notarised version is available on the Mac App Store.
+## Download and install
+
+1. Download [`SponsorBlock-Safari.app.zip`](https://github.com/snutij/SponsorBlockSafari/releases/latest) from the latest release.
+2. Unzip it and move `SponsorBlock.app` to `/Applications`.
+3. Open `SponsorBlock.app` once. If macOS blocks it, Control-click the app, choose **Open**, then confirm.
+4. In Safari, open **Settings > Advanced** and enable **Show features for web developers**.
+5. Open **Settings > Developer** and enable **Allow unsigned extensions**.
+6. Open **Settings > Extensions** and enable SponsorBlock.
+
+> [!NOTE]
+> The downloaded release is unsigned. Safari resets **Allow unsigned extensions**
+> whenever it restarts. Use the optional local-signing instructions below to
+> avoid that step.
 
 ## Optional: sign the downloaded app with a free Apple ID
 
-If you have a free Apple ID, you can sign the downloaded macOS app locally with
-an Apple Development certificate. This avoids Safari's unsigned-extension reset,
-so you should not need to re-enable **Allow unsigned extensions** every time
-Safari restarts.
+You can locally sign the downloaded app with a free Apple ID and an **Apple
+Development** certificate. Safari then recognizes it as signed, so you should
+not need to re-enable **Allow unsigned extensions** after each restart.
 
-1. Open Xcode, then go to **Xcode > Settings > Accounts** and add your Apple ID.
-2. Select the account, open **Manage Certificates...**, press **+**, and create
-   an **Apple Development** certificate.
-3. Move `SponsorBlock.app` to `/Applications`.
-4. Run:
+This signature is for your local installation only. Do not redistribute the
+resulting app.
+
+### Create a certificate
+
+1. Install [Xcode](https://apps.apple.com/app/xcode/id497799835) and open it.
+2. Go to **Xcode > Settings > Accounts** and add your Apple ID.
+3. Select the account, choose **Manage Certificates...**, press **+**, then
+   create an **Apple Development** certificate.
+4. In Terminal, find the certificate identity:
+
+   ```sh
+   security find-identity -v -p codesigning
+   ```
+
+   Copy the text in quotation marks, such as
+   `Apple Development: name@example.com (TEAMID)`.
+
+### Sign the app
+
+Move the downloaded app to `/Applications`, replace `IDENTITY` below with your
+certificate identity, then run the commands in Terminal:
 
 ```sh
-IDENTITY="Apple Development: your@email.example (TEAMID)"
+IDENTITY="Apple Development: name@example.com (TEAMID)"
 APP="/Applications/SponsorBlock.app"
 EXTENSION="$APP/Contents/PlugIns/SponsorBlock Extension.appex"
 
@@ -81,17 +102,32 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 open "$APP"
 ```
 
-To find the exact value for `IDENTITY`, run:
+Enable SponsorBlock once in **Safari > Settings > Extensions**. Repeat the
+signing steps after installing a new release.
 
-```sh
-security find-identity -v -p codesigning
-```
+## Updates
 
-After signing, enable SponsorBlock once in **Safari > Settings > Extensions**.
-Repeat these signing steps after downloading a new release.
+New builds are published automatically after an upstream SponsorBlock release.
+To update, download the latest ZIP, replace the existing app in `/Applications`,
+and repeat the local-signing steps if you use them.
 
-## Repository Contents
+## How this repository works
 
-This repository contains the generated Xcode files for the Safari extension available [in the App Store](https://apps.apple.com/us/app/sponsorblock-for-youtube/id1573461917).
+The GitHub Actions workflow:
 
-See [this wiki page](https://github.com/ajayyy/SponsorBlock/wiki/Safari) for how to build this yourself.
+1. Checks for the latest [upstream SponsorBlock release](https://github.com/ajayyy/SponsorBlock/releases).
+2. Downloads its `SafariExtension.zip` asset.
+3. Generates a fresh macOS-only Safari extension project with
+   `safari-web-extension-packager`.
+4. Builds and publishes `SponsorBlock-Safari.app.zip`.
+
+The committed Xcode project is upstream glue code and references generated
+extension assets that are not kept in this repository. It is not the supported
+way to create a release build; use the workflow or the official SponsorBlock
+project for development.
+
+## License
+
+This repository is licensed under [GPL-3.0](LICENSE). See
+[LICENSE-APPSTORE.txt](LICENSE-APPSTORE.txt) for the App Store distribution
+exception provided by the SponsorBlock copyright holders.
